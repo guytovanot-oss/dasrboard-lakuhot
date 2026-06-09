@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>דשבורד ניהול לקוחות</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #ffffff; --bg2: #f5f5f3; --bg3: #efefec;
+    --text: #1a1a18; --text2: #6b6b67; --text3: #9e9e9a;
+    --border: rgba(0,0,0,0.12); --border2: rgba(0,0,0,0.22);
+    --radius: 8px; --radius-lg: 12px;
+    --blue: #185FA5; --blue-light: #E6F1FB; --blue-dark: #0C447C;
+    --purple: #534AB7; --purple-light: #EEEDFE;
+    --green: #3B6D11; --green-light: #EAF3DE;
+    --red: #A32D2D; --red-light: #FCEBEB;
+    --coral: #993C1D; --coral-light: #FAECE7;
+    --amber-light: #FAEEDA; --amber-text: #854F0B;
+    --gray-light: #F1EFE8; --gray-text: #5F5E5A;
+    font-family: 'Segoe UI', Tahoma, Geneva, sans-serif;
+  }
+  body { background: var(--bg2); color: var(--text); min-height: 100vh; padding: 2rem 1.5rem; }
+  h1 { font-size: 22px; font-weight: 600; }
+
+  .top-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 10px; }
+  .top-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+  input[type=text], input[type=number], textarea {
+    font-family: inherit; font-size: 14px; padding: 7px 11px;
+    border: 1px solid var(--border2); border-radius: var(--radius);
+    background: var(--bg); color: var(--text); outline: none; transition: border-color .15s;
+  }
+  input:focus, textarea:focus { border-color: var(--blue); }
+  #search-input { width: 170px; }
+
+  .btn { padding: 7px 15px; border-radius: var(--radius); border: 1px solid var(--border2); background: transparent; color: var(--text); font-size: 13px; cursor: pointer; font-family: inherit; transition: background .15s; display: inline-flex; align-items: center; gap: 5px; }
+  .btn:hover { background: var(--bg3); }
+  .btn-primary { background: var(--blue); border-color: var(--blue); color: var(--blue-light); }
+  .btn-primary:hover { background: var(--blue-dark); border-color: var(--blue-dark); }
+  .btn-green { background: var(--green); border-color: var(--green); color: var(--green-light); }
+  .btn-green:hover { background: #27500A; border-color: #27500A; }
+
+  .months-bar { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 1.25rem; }
+  .month-pill { padding: 4px 11px; border-radius: 99px; border: 1px solid var(--border2); background: transparent; font-size: 12px; cursor: pointer; color: var(--text2); font-family: inherit; transition: all .15s; }
+  .month-pill.active { background: var(--blue); border-color: var(--blue); color: var(--blue-light); }
+  .month-pill:not(.active):hover { background: var(--bg3); }
+
+  .stats-row { display: grid; grid-template-columns: repeat(5, minmax(0,1fr)); gap: 10px; margin-bottom: 1.5rem; }
+  .stat-card { background: var(--bg); border-radius: var(--radius); padding: 1rem; border: 1px solid var(--border); }
+  .stat-label { font-size: 12px; color: var(--text2); margin-bottom: 5px; }
+  .stat-value { font-size: 22px; font-weight: 600; }
+
+  .table-wrap { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
+  .table-scroll { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; min-width: 760px; }
+  th { text-align: right; font-size: 12px; font-weight: 600; color: var(--text2); padding: 10px 11px; border-bottom: 1px solid var(--border); white-space: nowrap; cursor: pointer; user-select: none; }
+  th:hover { color: var(--text); }
+  td { padding: 10px 11px; font-size: 13px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--bg2); }
+
+  .avatar { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; flex-shrink: 0; }
+  .action-btn { background: none; border: none; cursor: pointer; padding: 4px 6px; border-radius: var(--radius); color: var(--text2); font-size: 16px; font-family: inherit; transition: background .12s; }
+  .action-btn:hover { background: var(--bg3); color: var(--text); }
+
+  .badge { display: inline-block; padding: 2px 9px; border-radius: 99px; font-size: 11px; font-weight: 600; }
+  .badge-debt   { background: var(--red-light);   color: var(--red); }
+  .badge-accum  { background: var(--coral-light);  color: var(--coral); }
+  .badge-clear  { background: var(--green-light);  color: var(--green); }
+  .badge-partial{ background: var(--amber-light);  color: var(--amber-text); }
+  .badge-inv    { background: var(--green-light);  color: var(--green); }
+  .badge-noinv  { background: var(--gray-light);   color: var(--gray-text); }
+  .retainer-tag { font-size: 10px; color: var(--purple); background: var(--purple-light); padding: 1px 6px; border-radius: 99px; font-weight: 600; }
+  .accum-hint   { font-size: 10px; color: var(--coral); display: block; margin-top: 2px; }
+
+  .seg { display: inline-flex; border: 1px solid var(--border2); border-radius: var(--radius); overflow: hidden; }
+  .seg button { border: none; padding: 3px 9px; font-size: 11px; cursor: pointer; background: transparent; color: var(--text2); font-family: inherit; }
+  .seg button.active-session  { background: var(--blue);   color: var(--blue-light); }
+  .seg button.active-retainer { background: var(--purple); color: var(--purple-light); }
+  .seg button:not(.active-session):not(.active-retainer):hover { background: var(--bg3); }
+
+  .meetings-ctrl { display: flex; align-items: center; gap: 6px; }
+  .note-cell { max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text2); font-size: 12px; cursor: pointer; }
+  .note-cell:hover { color: var(--text); }
+  .inv-toggle { background: none; border: none; cursor: pointer; padding: 2px 4px; }
+
+  #empty-state { display: none; text-align: center; padding: 3rem; color: var(--text2); }
+  .footer-hint { font-size: 11px; color: var(--text3); margin-top: 0.75rem; text-align: left; }
+
+  /* Modal */
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 200; align-items: center; justify-content: center; }
+  .modal-overlay.open { display: flex; }
+  .modal-box { background: var(--bg); border-radius: var(--radius-lg); padding: 1.5rem; width: 370px; max-height: 90vh; overflow-y: auto; border: 1px solid var(--border); box-shadow: 0 8px 40px rgba(0,0,0,0.18); }
+  .modal-box label { font-size: 13px; color: var(--text2); display: block; margin-bottom: 4px; margin-top: 12px; }
+  .modal-box input, .modal-box textarea { width: 100%; }
+  .modal-box textarea { resize: vertical; min-height: 70px; }
+  .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+  .modal-header span { font-size: 15px; font-weight: 600; }
+  .modal-footer { display: flex; gap: 8px; margin-top: 1.25rem; justify-content: flex-end; }
+  .radio-row { display: flex; gap: 16px; margin-top: 4px; }
+  .radio-row label { display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px; color: var(--text); margin: 0; }
+  .radio-row input { width: auto; }
+  .price-hint { font-size: 11px; color: var(--text2); margin-top: 4px; }
+  .pay-summary { background: var(--bg2); border-radius: var(--radius); padding: 10px; font-size: 13px; margin-bottom: 4px; }
+  .pay-row { display: flex; justify-content: space-between; margin-bottom: 4px; }
+  .pay-row.total { border-top: 1px solid var(--border); padding-top: 6px; margin-top: 4px; font-weight: 600; }
+</style>
+</head>
+<body>
+
+<div class="top-bar">
+  <h1>ניהול לקוחות</h1>
+  <div class="top-actions">
+    <input id="search-input" type="text" placeholder="חיפוש לקוח..." oninput="render()" />
+    <button class="btn btn-green" onclick="exportExcel()"><i class="ti ti-file-spreadsheet"></i> ייצוא לאקסל</button>
+    <button class="btn btn-primary" onclick="openAddModal()"><i class="ti ti-plus"></i> לקוח חדש</button>
+  </div>
+</div>
+
+<div id="months-bar" class="months-bar"></div>
+<div id="stats-row" class="stats-row"></div>
+
+<div class="table-wrap">
+  <div class="table-scroll">
+    <table>
+      <thead><tr id="table-header"></tr></thead>
+      <tbody id="table-body"></tbody>
+    </table>
+  </div>
+  <div id="empty-state">
+    <i class="ti ti-users" style="font-size:40px;opacity:0.25"></i>
+    <p style="margin-top:0.5rem">אין לקוחות עדיין</p>
+  </div>
+</div>
+
+<p class="footer-hint">חוב מצטבר אוטומטית מחודש לחודש עד לרישום תשלום &nbsp;|&nbsp; ריטיינר — פגישות למעקב בלבד, סכום קבוע</p>
+
+<div id="modal-overlay" class="modal-overlay" onclick="handleOverlayClick(event)">
+  <div id="modal-box" class="modal-box" onclick="event.stopPropagation()"></div>
+</div>
+
+<script>
+const COLORS=[{bg:'#B5D4F4',txt:'#0C447C'},{bg:'#9FE1CB',txt:'#085041'},{bg:'#F5C4B3',txt:'#712B13'},{bg:'#F4C0D1',txt:'#72243E'},{bg:'#C0DD97',txt:'#27500A'},{bg:'#FAC775',txt:'#633806'},{bg:'#CECBF6',txt:'#3C3489'},{bg:'#F7C1C1',txt:'#791F1F'}];
+const MONTHS=['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
+
+let clients=[], nextId=1, selectedMonth=new Date().getMonth(), sortCol='name', sortDir=1, editingId=null;
+
+function save(){ try{ localStorage.setItem('clients_v3',JSON.stringify({clients,nextId})); }catch(e){} }
+function load(){ try{ const d=JSON.parse(localStorage.getItem('clients_v3')); if(d){clients=d.clients;nextId=d.nextId;} }catch(e){} }
+
+function getMonthCharge(c,month){
+  if(c.type==='retainer') return c.price;
+  return (c.meetings[month]||0)*c.price;
+}
+// סכום מצטבר: כל החיובים עד החודש פחות כל התשלומים
+function getCumulativeDebt(c,upToMonth){
+  let charged=0, paid=0;
+  for(let m=0;m<=upToMonth;m++){ charged+=getMonthCharge(c,m); paid+=(c.paid[m]||0); }
+  return charged-paid;
+}
+function getPrevDebt(c,month){ return month===0?0:getCumulativeDebt(c,month-1); }
+function getDisplayDebt(c,month){ return getCumulativeDebt(c,month); }
+
+function getFiltered(){ const q=(document.getElementById('search-input')?.value||'').toLowerCase(); return clients.filter(c=>c.name.toLowerCase().includes(q)); }
+
+function initMonths(){
+  const bar=document.getElementById('months-bar'); bar.innerHTML='';
+  MONTHS.forEach((m,i)=>{ const btn=document.createElement('button'); btn.className='month-pill'+(i===selectedMonth?' active':''); btn.textContent=m; btn.onclick=()=>{selectedMonth=i;render();}; bar.appendChild(btn); });
+}
+
+function renderStats(){
+  const f=getFiltered();
+  const totalMeetings=f.reduce((s,c)=>s+(c.meetings[selectedMonth]||0),0);
+  const totalRevMonth=f.reduce((s,c)=>s+getMonthCharge(c,selectedMonth),0);
+  const totalDebt=f.reduce((s,c)=>s+Math.max(0,getDisplayDebt(c,selectedMonth)),0);
+  const invCount=f.filter(c=>c.invoiced[selectedMonth]).length;
+  const stats=[
+    {label:'לקוחות',value:f.length},
+    {label:'פגישות החודש',value:totalMeetings},
+    {label:'חיוב '+MONTHS[selectedMonth],value:'₪'+totalRevMonth.toLocaleString()},
+    {label:'חוב מצטבר',value:'₪'+totalDebt.toLocaleString(),red:totalDebt>0},
+    {label:'חשבוניות יצאו',value:invCount+'/'+f.length,green:true},
+  ];
+  document.getElementById('stats-row').innerHTML=stats.map(s=>`<div class="stat-card"><div class="stat-label">${s.label}</div><div class="stat-value" style="${s.red?'color:var(--red)':s.green?'color:var(--green)':''}">${s.value}</div></div>`).join('');
+}
+
+function renderTable(){
+  const cols=[
+    {key:'name',label:'שם לקוח',w:'18%'},
+    {key:'type',label:'סוג',w:'15%'},
+    {key:'price',label:'מחיר',w:'9%'},
+    {key:'meetings',label:'פגישות',w:'12%'},
+    {key:'total',label:'חיוב '+MONTHS[selectedMonth],w:'12%'},
+    {key:'debt',label:'חוב מצטבר',w:'14%'},
+    {key:'invoiced',label:'חשבונית',w:'10%'},
+    {key:'notes',label:'הערות',w:'10%'},
+  ];
+  document.getElementById('table-header').innerHTML=cols.map(c=>`<th style="width:${c.w}" onclick="sortBy('${c.key}')">${c.label}${c.key===sortCol?(sortDir>0?' ↑':' ↓'):''}</th>`).join('');
+
+  const sorted=getFiltered().sort((a,b)=>{
+    let av,bv;
+    if(sortCol==='name'){av=a.name;bv=b.name;}
+    else if(sortCol==='type'){av=a.type;bv=b.type;}
+    else if(sortCol==='price'){av=a.price;bv=b.price;}
+    else if(sortCol==='meetings'){av=a.meetings[selectedMonth]||0;bv=b.meetings[selectedMonth]||0;}
+    else if(sortCol==='total'){av=getMonthCharge(a,selectedMonth);bv=getMonthCharge(b,selectedMonth);}
+    else if(sortCol==='debt'){av=getDisplayDebt(a,selectedMonth);bv=getDisplayDebt(b,selectedMonth);}
+    else if(sortCol==='invoiced'){av=a.invoiced[selectedMonth]?1:0;bv=b.invoiced[selectedMonth]?1:0;}
+    else{av=a.name;bv=b.name;}
+    if(typeof av==='string') return av.localeCompare(bv,'he')*sortDir;
+    return (av-bv)*sortDir;
+  });
+
+  const tbody=document.getElementById('table-body');
+  const empty=document.getElementById('empty-state');
+  if(sorted.length===0){tbody.innerHTML='';empty.style.display='block';return;}
+  empty.style.display='none';
+
+  tbody.innerHTML=sorted.map(c=>{
+    const meetings=c.meetings[selectedMonth]||0;
+    const monthCharge=getMonthCharge(c,selectedMonth);
+    const debt=getDisplayDebt(c,selectedMonth);
+    const prevDebt=getPrevDebt(c,selectedMonth);
+    const color=COLORS[c.color%COLORS.length];
+    const initials=c.name.split(' ').map(w=>w[0]).join('').slice(0,2);
+
+    const typeSeg=`<div class="seg"><button class="${c.type==='session'?'active-session':''}" onclick="setType(${c.id},'session')">פגישה</button><button class="${c.type==='retainer'?'active-retainer':''}" onclick="setType(${c.id},'retainer')">ריטיינר</button></div>`;
+
+    const meetingsCell=`<div class="meetings-ctrl">
+      <button class="action-btn" onclick="changeMeetings(${c.id},-1)"><i class="ti ti-minus"></i></button>
+      <span style="min-width:18px;text-align:center;font-weight:600">${meetings}</span>
+      <button class="action-btn" onclick="changeMeetings(${c.id},1)"><i class="ti ti-plus"></i></button>
+      ${c.type==='retainer'?'<span class="retainer-tag">מעקב</span>':''}
+    </div>`;
+
+    const totalCell=c.type==='retainer'
+      ?`₪${monthCharge.toLocaleString()}`
+      :`₪${monthCharge.toLocaleString()} <span style="font-size:11px;color:var(--text2)">(${meetings}×${c.price})</span>`;
+
+    let debtCell;
+    if(debt<=0){
+      debtCell=`<span class="badge badge-clear">שולם</span>`;
+    } else {
+      const hasCarry=prevDebt>0;
+      debtCell=`<div>
+        <span class="badge ${hasCarry?'badge-accum':'badge-debt'}">₪${debt.toLocaleString()}</span>
+        ${hasCarry?`<span class="accum-hint">כולל ₪${prevDebt.toLocaleString()} מחודשים קודמים</span>`:''}
+        <button class="action-btn" onclick="openPayModal(${c.id})" title="רשום תשלום"><i class="ti ti-cash"></i></button>
+      </div>`;
+    }
+
+    const invBadge=`<button class="inv-toggle" onclick="toggleInvoice(${c.id})"><span class="badge ${c.invoiced[selectedMonth]?'badge-inv':'badge-noinv'}">${c.invoiced[selectedMonth]?'✓ יצאה':'לא יצאה'}</span></button>`;
+
+    const noteDisplay=c.notes
+      ?`<span class="note-cell" onclick="openNoteModal(${c.id})" title="${c.notes.replace(/"/g,'&quot;')}">${c.notes}</span>`
+      :`<button class="action-btn" onclick="openNoteModal(${c.id})"><i class="ti ti-pencil"></i></button>`;
+
+    return `<tr>
+      <td><div style="display:flex;align-items:center;gap:8px;">
+        <div class="avatar" style="background:${color.bg};color:${color.txt}">${initials}</div>
+        <div>
+          <div style="font-weight:600;white-space:nowrap">${c.name}</div>
+          <div style="display:flex;gap:3px;margin-top:2px">
+            <button class="action-btn" style="font-size:13px;padding:1px 4px" onclick="openEditModal(${c.id})"><i class="ti ti-edit"></i></button>
+            <button class="action-btn" style="font-size:13px;padding:1px 4px;color:var(--red)" onclick="deleteClient(${c.id})"><i class="ti ti-trash"></i></button>
+          </div>
+        </div>
+      </div></td>
+      <td>${typeSeg}</td>
+      <td>₪${c.price.toLocaleString()}</td>
+      <td>${meetingsCell}</td>
+      <td>${totalCell}</td>
+      <td>${debtCell}</td>
+      <td>${invBadge}</td>
+      <td>${noteDisplay}</td>
+    </tr>`;
+  }).join('');
+}
+
+function sortBy(key){if(sortCol===key)sortDir*=-1;else{sortCol=key;sortDir=1;}renderTable();}
+function changeMeetings(id,delta){const c=clients.find(x=>x.id===id);if(!c)return;c.meetings[selectedMonth]=Math.max(0,(c.meetings[selectedMonth]||0)+delta);save();render();}
+function deleteClient(id){if(!confirm('למחוק לקוח זה?'))return;clients=clients.filter(c=>c.id!==id);save();render();}
+function toggleInvoice(id){const c=clients.find(x=>x.id===id);if(!c)return;c.invoiced[selectedMonth]=!c.invoiced[selectedMonth];save();render();}
+function setType(id,type){const c=clients.find(x=>x.id===id);if(!c)return;c.type=type;save();render();}
+
+function openModal(html){document.getElementById('modal-box').innerHTML=html;document.getElementById('modal-overlay').classList.add('open');}
+function closeModal2(){document.getElementById('modal-overlay').classList.remove('open');}
+function handleOverlayClick(e){if(e.target===document.getElementById('modal-overlay'))closeModal2();}
+
+function openAddModal(){editingId=null;showClientModal({name:'',price:'',type:'session',notes:''});}
+function openEditModal(id){editingId=id;const c=clients.find(x=>x.id===id);showClientModal({name:c.name,price:c.price,type:c.type,notes:c.notes||''});}
+
+function showClientModal({name,price,type,notes}){
+  openModal(`
+    <div class="modal-header"><span>${editingId?'עריכת לקוח':'לקוח חדש'}</span><button class="action-btn" onclick="closeModal2()"><i class="ti ti-x"></i></button></div>
+    <label>שם הלקוח</label><input id="m-name" type="text" value="${name}" placeholder="שם מלא" />
+    <label>סוג התקשרות</label>
+    <div class="radio-row">
+      <label><input type="radio" name="m-type" value="session" ${type==='session'?'checked':''} onchange="updatePriceLabel()" /> פגישה</label>
+      <label><input type="radio" name="m-type" value="retainer" ${type==='retainer'?'checked':''} onchange="updatePriceLabel()" /> ריטיינר</label>
+    </div>
+    <label id="price-label">${type==='retainer'?'תשלום חודשי קבוע (₪)':'מחיר לפגישה (₪)'}</label>
+    <input id="m-price" type="number" value="${price}" placeholder="0" min="0" />
+    <p class="price-hint" id="price-hint">${type==='retainer'?'פגישות למעקב בלבד — הסכום לא ישתנה':'כל פגישה תחושב לפי מחיר זה'}</p>
+    <label>הערות</label><textarea id="m-notes" placeholder="הערות על הלקוח...">${notes}</textarea>
+    <div class="modal-footer"><button class="btn" onclick="closeModal2()">ביטול</button><button class="btn btn-primary" onclick="saveClient()">שמור</button></div>`);
+}
+
+function updatePriceLabel(){
+  const t=document.querySelector('input[name="m-type"]:checked')?.value||'session';
+  document.getElementById('price-label').textContent=t==='retainer'?'תשלום חודשי קבוע (₪)':'מחיר לפגישה (₪)';
+  document.getElementById('price-hint').textContent=t==='retainer'?'פגישות למעקב בלבד — הסכום לא ישתנה':'כל פגישה תחושב לפי מחיר זה';
+}
+
+function saveClient(){
+  const name=(document.getElementById('m-name').value||'').trim();
+  const price=parseFloat(document.getElementById('m-price').value)||0;
+  const type=document.querySelector('input[name="m-type"]:checked')?.value||'session';
+  const notes=(document.getElementById('m-notes').value||'').trim();
+  if(!name)return;
+  if(editingId){const c=clients.find(x=>x.id===editingId);c.name=name;c.price=price;c.type=type;c.notes=notes;}
+  else clients.push({id:nextId++,name,type,price,color:clients.length%COLORS.length,meetings:{},paid:{},invoiced:{},notes});
+  save();closeModal2();render();
+}
+
+function openNoteModal(id){
+  const c=clients.find(x=>x.id===id);
+  openModal(`
+    <div class="modal-header"><span>הערות — ${c.name}</span><button class="action-btn" onclick="closeModal2()"><i class="ti ti-x"></i></button></div>
+    <textarea id="m-note-text" style="width:100%;min-height:110px;margin-top:12px;padding:8px;font-size:14px;border:1px solid rgba(0,0,0,0.22);border-radius:8px;background:#fff;color:#1a1a18;resize:vertical;font-family:inherit" placeholder="הערות...">${c.notes||''}</textarea>
+    <div class="modal-footer"><button class="btn" onclick="closeModal2()">ביטול</button><button class="btn btn-primary" onclick="saveNote(${id})">שמור</button></div>`);
+}
+function saveNote(id){clients.find(x=>x.id===id).notes=(document.getElementById('m-note-text').value||'').trim();save();closeModal2();render();}
+
+function openPayModal(id){
+  const c=clients.find(x=>x.id===id);
+  const debt=getDisplayDebt(c,selectedMonth);
+  const prevDebt=getPrevDebt(c,selectedMonth);
+  const monthCharge=getMonthCharge(c,selectedMonth);
+  openModal(`
+    <div class="modal-header"><span>רישום תשלום — ${c.name}</span><button class="action-btn" onclick="closeModal2()"><i class="ti ti-x"></i></button></div>
+    <div class="pay-summary">
+      <div class="pay-row"><span style="color:var(--text2)">חיוב ${MONTHS[selectedMonth]}</span><span>₪${monthCharge.toLocaleString()}</span></div>
+      ${prevDebt>0?`<div class="pay-row"><span style="color:var(--text2)">חוב מחודשים קודמים</span><span style="color:var(--coral)">₪${prevDebt.toLocaleString()}</span></div>`:''}
+      <div class="pay-row total"><span>סה"כ לתשלום</span><span>₪${debt.toLocaleString()}</span></div>
+    </div>
+    <label>סכום ששולם (₪)</label>
+    <input id="m-pay" type="number" value="${debt}" min="0" style="width:100%" />
+    <div class="modal-footer"><button class="btn" onclick="closeModal2()">ביטול</button><button class="btn btn-primary" onclick="savePay(${id})">אישור תשלום</button></div>`);
+}
+function savePay(id){
+  const c=clients.find(x=>x.id===id);
+  c.paid[selectedMonth]=(c.paid[selectedMonth]||0)+(parseFloat(document.getElementById('m-pay').value)||0);
+  save();closeModal2();render();
+}
+
+function exportExcel(){
+  if(typeof XLSX==='undefined'){alert('ספריית האקסל עדיין נטענת');return;}
+  const wb=XLSX.utils.book_new();
+  MONTHS.forEach((monthName,mi)=>{
+    const rows=[['שם לקוח','סוג','מחיר','פגישות','חיוב חודש','שולם חודש','חוב מצטבר','חשבונית','הערות']];
+    clients.forEach(c=>{
+      const meetings=c.meetings[mi]||0;
+      const monthCharge=getMonthCharge(c,mi);
+      const paid=c.paid[mi]||0;
+      const cumDebt=Math.max(0,getCumulativeDebt(c,mi));
+      rows.push([c.name,c.type==='retainer'?'ריטיינר':'פגישה',c.price,meetings,monthCharge,paid,cumDebt,c.invoiced[mi]?'כן':'לא',c.notes||'']);
+    });
+    const ws=XLSX.utils.aoa_to_sheet(rows);
+    ws['!cols']=[{wch:16},{wch:10},{wch:10},{wch:8},{wch:12},{wch:12},{wch:14},{wch:12},{wch:22}];
+    XLSX.utils.book_append_sheet(wb,ws,monthName);
+  });
+  const sumRows=[['שם לקוח','סוג','מחיר','סה"כ פגישות','סה"כ חויב','סה"כ שולם','חוב מצטבר סופי','חשבוניות','הערות']];
+  clients.forEach(c=>{
+    const totalM=Object.values(c.meetings).reduce((s,v)=>s+v,0);
+    const totalRev=MONTHS.reduce((_,__,mi)=>_+getMonthCharge(c,mi),0);
+    const totalPaid=Object.values(c.paid).reduce((s,v)=>s+v,0);
+    const totalInv=Object.values(c.invoiced).filter(Boolean).length;
+    sumRows.push([c.name,c.type==='retainer'?'ריטיינר':'פגישה',c.price,totalM,totalRev,totalPaid,totalRev-totalPaid,totalInv+' חודשים',c.notes||'']);
+  });
+  const ws2=XLSX.utils.aoa_to_sheet(sumRows);
+  ws2['!cols']=[{wch:16},{wch:10},{wch:10},{wch:14},{wch:14},{wch:12},{wch:14},{wch:14},{wch:22}];
+  XLSX.utils.book_append_sheet(wb,ws2,'סיכום שנתי');
+  XLSX.writeFile(wb,'לקוחות_'+new Date().getFullYear()+'.xlsx');
+}
+
+document.getElementById('search-input').addEventListener('input',render);
+function render(){initMonths();renderStats();renderTable();}
+load();render();
+</script>
+</body>
+</html>
